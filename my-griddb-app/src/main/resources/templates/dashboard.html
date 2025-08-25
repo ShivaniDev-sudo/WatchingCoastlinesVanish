@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Watching Coastlines Vanish</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --ocean-blue: #006994;
+            --wave-blue: #0077BE;
+            --sea-green: #40826D;
+            --coral-red: #FF6B6B;
+            --sand-beige: #F4F3EE;
+            --deep-navy: #1B365D;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--sand-beige) 0%, #E8F4FD 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(90deg, var(--deep-navy) 0%, var(--ocean-blue) 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--ocean-blue) 0%, var(--wave-blue) 100%);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 50px 50px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .station-card {
+            border-left: 4px solid var(--ocean-blue);
+            margin-bottom: 1rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 1rem 0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .status-warning { background-color: #ffc107; }
+
+        .metric-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--ocean-blue);
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+            border: none;
+            border-radius: 10px;
+        }
+
+        .btn-ocean {
+            background: linear-gradient(135deg, var(--ocean-blue) 0%, var(--wave-blue) 100%);
+            border: none;
+            color: white;
+            border-radius: 25px;
+            padding: 0.5rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-ocean:hover {
+            background: linear-gradient(135deg, var(--wave-blue) 0%, var(--ocean-blue) 100%);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 2rem 0;
+            }
+            
+            .metric-value {
+                font-size: 2rem;
+            }
+        }
+
+        /* Wave animation */
+        .wave-animation {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wave-animation::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: wave 2s infinite;
+        }
+
+        @keyframes wave {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">
+                🌊 GridDB Coastal Monitor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#overview">Overview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#stations">Stations</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#trends">Trends</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section wave-animation">
+        <div class="container text-center">
+            <h1 class="display-4 fw-bold mb-4" th:text="${title}">Watching Coastlines Vanish</h1>
+            <p class="lead mb-4" th:text="${subtitle}">Real-time Coastal Monitoring with GridDB Time-Series</p>
+            <p class="mb-4">
+                🌍 Explore time-stamped oceanographic data to understand how climate change is reshaping our coastlines
+            </p>
+            <button class="btn btn-light btn-lg" onclick="refreshData()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh Data
+            </button>
+        </div>
+    </section>
+
+    <div class="container">
+        <!-- Status Alert -->
+        <div id="statusAlert" class="alert alert-info" role="alert" style="display: none;">
+            <strong>Status:</strong> <span id="statusMessage">Loading...</span>
+        </div>
+
+        <!-- Overview Metrics -->
+        <section id="overview" class="mb-5">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="totalStations">4</div>
+                        <div class="metric-label">Monitoring Stations</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="activeStations">
+                            <span class="status-indicator status-online"></span>4
+                        </div>
+                        <div class="metric-label">Online</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="avgSeaLevelRise">+3.2</div>
+                        <div class="metric-label">Avg Rise (mm/year)</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="lastUpdate">--:--</div>
+                        <div class="metric-label">Last Update</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Water Levels Chart -->
+        <section class="mb-5">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🌊 Real-time Water Levels</h5>
+                    <select id="stationSelect" class="form-select w-auto" onchange="loadStationData()">
+                        <option value="">Select Station...</option>
+                        <option th:each="station : ${stations}" 
+                                th:value="${station.stationId}" 
+                                th:text="${station.stationName + ' (' + station.state + ')'}">
+                        </option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="waterLevelChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monthly Sea Level Rise Trends -->
+        <section id="trends" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📈 Sea Level Rise Trends (10-Year Analysis)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="trendsChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <div class="alert alert-warning">
+                            <strong>Climate Impact Alert:</strong> 
+                            Data shows accelerating sea level rise rates across monitored stations. 
+                            Coastal vulnerability is increasing, particularly in low-lying areas.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rate of Sea Level Rise Chart -->
+        <section id="rate-of-rise" class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🌊 Annual Sea Level Rise Rate by Station</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="rateOfRiseChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <div class="alert alert-info">
+                            <strong>Insight:</strong> This chart visualizes the average annual rate of sea level rise for each monitored station, highlighting areas experiencing more rapid changes.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring Stations -->
+        <section id="stations" class="mb-5">
+            <h3 class="mb-4">🗺️ Monitoring Stations</h3>
+            <div class="row" id="stationCards">
+                <div th:each="station : ${stations}" class="col-md-6 mb-3">
+                    <div class="card station-card">
+                        <div class="card-body">
+                            <h6 class="card-title" th:text="${station.stationName}">Station Name</h6>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    ID: <span th:text="${station.stationId}">8518750</span> | 
+                                    State: <span th:text="${station.state}">NY</span>
+                                </small>
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="status-indicator status-online"></span>
+                                <small class="text-muted">Online</small>
+                                <button class="btn btn-sm btn-ocean" 
+                                        th:attr="data-station-id=${station.stationId}"
+                                        onclick="loadStationDetails(this.getAttribute('data-station-id'))">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Management -->
+        <section class="mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚙️ Data Management</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <button class="btn btn-ocean me-2" onclick="triggerDataCollection()">
+                                🔄 Refresh Real-time Data
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="triggerMonthlyUpdate()">
+                                📊 Update Monthly Trends
+                            </button>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                GridDB Time-Series Demo | 
+                                Data Source: NOAA CO-OPS API
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading coastal data from GridDB...</p>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Dashboard JavaScript -->
+    <script>
+        let waterLevelChart;
+        let trendsChart;
+        let rateOfRiseChart;
+        let currentStation = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🌊 Initializing Coastal Monitor Dashboard...');
+            initializeCharts();
+            loadDashboardData();
+            
+            // Auto-refresh every 30 minutes
+            setInterval(loadDashboardData, 30 * 60 * 1000);
+        });
+
+        /**
+         * Initialize empty charts
+         */
+        function initializeCharts() {
+            // Water Level Chart
+            const waterCtx = document.getElementById('waterLevelChart').getContext('2d');
+            waterLevelChart = new Chart(waterCtx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Water Level (m)',
+                        data: [],
+                        borderColor: 'rgb(0, 105, 148)',
+                        backgroundColor: 'rgba(0, 105, 148, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'hour'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Water Level (meters above MLLW)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Real-time Coastal Water Levels: Monitoring Immediate Changes'
+                        },
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+
+            // Trends Chart
+            const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+            trendsChart = new Chart(trendsCtx, {
+                type: 'line',
+                data: {
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'year'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Year'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Sea Level Change (meters relative to start)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Accelerating Sea Level Rise: A Threat to Coastlines'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            // Rate of Rise Chart
+            const rateCtx = document.getElementById('rateOfRiseChart').getContext('2d');
+            rateOfRiseChart = new Chart(rateCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Annual Rise Rate (mm/year)',
+                        data: [],
+                        backgroundColor: 'rgba(0, 105, 148, 0.8)',
+                        borderColor: 'rgba(0, 105, 148, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Annual Rise Rate (mm/year)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Station'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Annual Sea Level Rise Rate by Station'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Load dashboard overview data
+         */
+        async function loadDashboardData() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/dashboard-data');
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus('Error loading data: ' + data.error, 'danger');
+                    return;
+                }
+
+                updateMetrics(data);
+                updateTrendsChart(data.stations);
+                showStatus('Data refreshed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showStatus('Failed to load dashboard data', 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Update overview metrics
+         */
+        function updateMetrics(data) {
+            document.getElementById('totalStations').textContent = data.totalStations || '4';
+            document.getElementById('activeStations').innerHTML = 
+                '<span class="status-indicator status-online"></span>' + (data.totalStations || '4');
+            
+            // Update last update time
+            if (data.lastUpdated) {
+                const date = new Date(data.lastUpdated);
+                document.getElementById('lastUpdate').textContent = 
+                    date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        /**
+         * Load specific station water level data
+         */
+        async function loadStationData() {
+            const stationId = document.getElementById('stationSelect').value;
+            if (!stationId) return;
+
+            currentStation = stationId;
+            showLoading(true);
+
+            try {
+                const response = await fetch(`/api/water-levels/${stationId}?hours=24`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus('Error loading station data: ' + data.error, 'warning');
+                    return;
+                }
+
+                updateWaterLevelChart(data, stationId);
+                showStatus(`Loaded data for station ${stationId}`, 'info');
+                
+            } catch (error) {
+                console.error('Error loading station data:', error);
+                showStatus('Failed to load station data', 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Update water level chart with station data
+         */
+        function updateWaterLevelChart(data, stationId) {
+            // Parse GridDB response and convert to chart data
+            const chartData = [];
+            
+            // Assuming data is in GridDB result format
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(row => {
+                    if (row.length >= 4) {
+                        chartData.push({
+                            x: new Date(row[0]), // timestamp
+                            y: parseFloat(row[3])  // water_level
+                        });
+                    }
+                });
+            }
+
+            waterLevelChart.data.datasets[0].data = chartData;
+            waterLevelChart.data.datasets[0].label = `Station ${stationId} Water Level (m)`;
+            waterLevelChart.update();
+        }
+
+        /**
+         * Update trends chart with all stations
+         */
+        function updateTrendsChart(stations) {
+            const datasets = [];
+            const colors = ['#006994', '#FF6B6B', '#40826D', '#FFA500'];
+            
+            stations.forEach((station, index) => {
+                if (station.monthlyTrend && station.monthlyTrend.results) {
+                    const trendData = [];
+                    
+                    // Sort data by timestamp to find the earliest MSL
+                    const sortedTrendData = station.monthlyTrend.results.sort((a, b) => new Date(a[0]) - new Date(b[0]));
+                    
+                    if (sortedTrendData.length > 0) {
+                        const earliestMSL = parseFloat(sortedTrendData[0][3]);
+
+                        sortedTrendData.forEach(row => {
+                            if (row.length >= 3) {
+                                trendData.push({
+                                    x: new Date(row[0]),
+                                    y: parseFloat(row[3]) - earliestMSL // Calculate change from earliest
+                                });
+                            }
+                        });
+                    }
+                    
+                    if (trendData.length > 0) {
+                        datasets.push({
+                            label: station.stationName,
+                            data: trendData,
+                            borderColor: colors[index % colors.length],
+                            backgroundColor: colors[index % colors.length] + '20',
+                            tension: 0.1
+                        });
+                    }
+                }
+            });
+
+            trendsChart.data.datasets = datasets;
+            trendsChart.update();
+
+            // Calculate and update Rate of Rise Chart
+            const rateLabels = [];
+            const rateData = [];
+
+            stations.forEach(station => {
+                if (station.monthlyTrend && station.monthlyTrend.results && station.monthlyTrend.results.length > 1) {
+                    // Sort data by timestamp to ensure correct order
+                    const sortedTrendData = station.monthlyTrend.results.sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+                    const firstDataPoint = sortedTrendData[0];
+                    const lastDataPoint = sortedTrendData[sortedTrendData.length - 1];
+
+                    const firstMSL = parseFloat(firstDataPoint[3]);
+                    const lastMSL = parseFloat(lastDataPoint[3]);
+
+                    const firstYear = new Date(firstDataPoint[0]).getFullYear();
+                    const lastYear = new Date(lastDataPoint[0]).getFullYear();
+
+                    const yearsDiff = lastYear - firstYear;
+
+                    if (yearsDiff > 0) {
+                        const annualRate = ((lastMSL - firstMSL) / yearsDiff) * 1000; // Convert to mm/year
+                        rateLabels.push(station.stationName);
+                        rateData.push(annualRate.toFixed(2)); // Round to 2 decimal places
+                    }
+                }
+            });
+
+            rateOfRiseChart.data.labels = rateLabels;
+            rateOfRiseChart.data.datasets[0].data = rateData;
+            rateOfRiseChart.update();
+        }
+
+        /**
+         * Load detailed station information
+         */
+        async function loadStationDetails(stationId) {
+            showLoading(true);
+            
+            try {
+                // Load both water levels and trends for the station
+                const [waterResponse, trendResponse] = await Promise.all([
+                    fetch(`/api/water-levels/${stationId}?hours=168`), // 7 days
+                    fetch(`/api/monthly-trends/${stationId}?years=5`)
+                ]);
+                
+                const waterData = await waterResponse.json();
+                const trendData = await trendResponse.json();
+                
+                // Update both charts with station-specific data
+                updateWaterLevelChart(waterData, stationId);
+                // Could add station-specific trend display here
+                
+                // Select the station in dropdown
+                document.getElementById('stationSelect').value = stationId;
+                
+                showStatus(`Loaded detailed data for station ${stationId}`, 'info');
+                
+            } catch (error) {
+                console.error('Error loading station details:', error);
+                showStatus('Failed to load station details', 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Trigger manual data collection
+         */
+        async function triggerDataCollection() {
+            showLoading(true);
+            showStatus('Triggering data collection...', 'info');
+            
+            try {
+                const response = await fetch('/api/trigger-collection', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('Data collection triggered successfully', 'success');
+                    // Refresh dashboard after a delay
+                    setTimeout(loadDashboardData, 5000);
+                } else {
+                    showStatus('Failed to trigger data collection', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('Error triggering data collection:', error);
+                showStatus('Failed to trigger data collection', 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Trigger monthly data update
+         */
+        async function triggerMonthlyUpdate() {
+            showLoading(true);
+            showStatus('Updating monthly trends...', 'info');
+            
+            try {
+                const response = await fetch('/api/trigger-monthly-update', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('Monthly data update completed', 'success');
+                    setTimeout(loadDashboardData, 5000);
+                } else {
+                    showStatus('Failed to update monthly data', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('Error updating monthly data:', error);
+                showStatus('Failed to update monthly data', 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Refresh all data
+         */
+        function refreshData() {
+            loadDashboardData();
+            if (currentStation) {
+                loadStationData();
+            }
+        }
+
+        /**
+         * Show loading spinner
+         */
+        function showLoading(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = show ? 'block' : 'none';
+        }
+
+        /**
+         * Show status message
+         */
+        function showStatus(message, type = 'info') {
+            const alert = document.getElementById('statusAlert');
+            const messageSpan = document.getElementById('statusMessage');
+            
+            alert.className = `alert alert-${type}`;
+            messageSpan.textContent = message;
+            alert.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        /**
+         * Format timestamp for display
+         */
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+    </script>
+</body>
+</html>
