@@ -1,5 +1,3 @@
-# **Advanced Time-Series Analytics for Coastal Climate Resilience: Implementing Real-Time Sea Level Monitoring with GridDB**
-
 ## **Introduction**
 
 Global climate change is accelerating sea level rise at an alarming rate—averaging 3.3mm per year due to ocean warming and ice melt—posing severe threats to coastal communities and infrastructure. The complex dynamics of tides, storm surges, and long-term sea level trends require advanced, real-time monitoring systems that can handle vast streams of temporal data with precision and speed.
